@@ -1,5 +1,7 @@
 import os
 import re
+import sqlite3
+from datetime import datetime
 from pypdf import PdfReader
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
@@ -12,8 +14,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+DB_PATH = "sensitive_data_log.db"
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS flagged_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_type TEXT NOT NULL,
+    count INTEGER DEFAULT 1,
+    last_flagged TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+conn.commit()
+conn.close()
+
+def log_flagged_data(data_type: str):
+    """Logs the sensitive data attempt in the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT count FROM flagged_data WHERE data_type = ?", (data_type,))
+    result = cursor.fetchone()
+    
+    if result:
+        new_count = result[0] + 1
+        cursor.execute("""
+            UPDATE flagged_data
+            SET count = ?, last_flagged = CURRENT_TIMESTAMP
+            WHERE data_type = ?
+        """, (new_count, data_type))
+    else:
+        cursor.execute("INSERT INTO flagged_data (data_type) VALUES (?)", (data_type,))
+    
+    conn.commit()
+    conn.close()
+
 #read pdf 
-PDF_PATH = "mockdata.pdf"
+PDF_PATH = "LionFinTech.pdf"
 pdf_reader = PdfReader(PDF_PATH)
 
 raw_text = ""
@@ -100,10 +137,20 @@ rag_chain = (
     | StrOutputParser()
 )
 
+sensitive_terms = [
+    "NRIC", "FIN", "Passport number", "Mobile number", "Email address", "Home address", "Bank account number", "Credit card", "Transaction history", "API Key"
+]
+
 #query function 
 def ask_document_question(question: str):
+    for term in sensitive_terms:
+        if term.lower() in question.lower():
+            log_flagged_data(term)
+    
+    # Get answer from RAG
     response = rag_chain.invoke(question)
     return response
+
 
 if __name__ == "__main__":
     print("PDF RAG system loaded. Ask your question about sensitive data!")
