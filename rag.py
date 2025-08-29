@@ -144,8 +144,14 @@ rag_chain = (
 )
 
 sensitive_terms = [
-    "NRIC", "FIN", "Passport number", "Mobile number", "Email address", "Home address", "Bank account number", "Credit card", "Transaction history", "API Key"
+    "NRIC", "FIN", "PASSPORT",  # Personal Identifiers
+    "API_KEY", "ACCESS_TOKEN",   # Authentication & Access Credentials
+    "SALARY", "COMMISSION_RATE", "AMOUNT_MONEY", "ACCOUNT_BALANCE",  # Financial Data
+    "BUDGET", "INVOICE_ID", "PO_NUMBER", "FINANCIAL_REPORT", "PRICING_TERM",  # Business Confidential Information
+    "PROJECT_CODE", "SOURCE_CODE",  # Intellectual Property
+    "EMAIL", "PHONE", "SSN", "CREDIT_CARD", "ACCOUNT_NUMBER", "PERSON", "KEY", "FINANCIAL"  # Additional Sensitive Data
 ]
+
 
 #query function 
 def ask_document_question(question: str):
